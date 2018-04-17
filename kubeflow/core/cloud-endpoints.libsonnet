@@ -327,5 +327,71 @@
         },
       },
     },  // endpointsDeploy
+    espService:: {
+      apiVersion: "v1",
+      kind: "Service",
+      metadata: {
+        name: "esp",
+      },
+      spec: {
+        ports: [
+          {
+            port: 80,
+            targetPort: 8081,
+            protocol: "TCP"
+            name: "http",
+          },
+        ],
+        selector: {
+          app: "esp",
+        },
+        type: "LoadBalancer",
+      },
+    },
+    espDeployment(name, project):: {
+      apiVersion: "extensions/v1beta1",
+      kind: "Deployment",
+      metadata: {
+        name: "esp",
+      },
+      spec: {
+        replicas: 1,
+        template: {
+          metadata: {
+            labels: {
+              app: "esp-echo",
+            },
+          },
+          spec: {
+            containers: [
+              {
+                name: "esp",
+                image: "gcr.io/endpoints-release/endpoints-runtime:1",
+                args: [
+                  "--http_port=8081",
+                  "--backend=127.0.0.1:8080",
+                  "--service=echo-api.endpoints.constant-cubist-173123.cloud.goog",
+                  "--rollout_strategy=managed",
+                ],
+                ports: [
+                  {
+                    containerPort: 8081,
+                  },
+                ],
+              },
+              {
+                name: "echo",
+                image: "gcr.io/google-samples/echo-python:1.0",
+                ports: [
+                  {
+                    containerPort: 8080,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    }, // espDeployment
   },  // parts
 }
