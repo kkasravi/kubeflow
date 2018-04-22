@@ -6,7 +6,7 @@
 # that we can read the user's home directory on the host
 # so that we can uss kubeconfig, gcloud config and other things.
 set -x
-groupadd -g ${GROUP_ID} ${GROUP}
+#groupadd -g ${GROUP_ID} ${GROUP}
 useradd -r -u ${USER_ID} -g ${GROUP} --shell=/bin/bash ${USER}
 cd /home/${USER}
 su ${USER}

@@ -1,7 +1,8 @@
 # TODO(jlewi): How can we make it work with golang:1.8.2-alpine
-FROM golang:1.8.2
+FROM golang:1.9
 
-ARG KUBEFLOW_REPO=https://github.com/kubeflow/kubeflow.git
+# for debug
+RUN apt-get update && apt-get install -y vim
 
 # We need gcloud to get gke credentials.
 RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/google-cloud-sdk.tar.gz && \
@@ -21,31 +22,27 @@ RUN  curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.10.0/
     mv kubectl /usr/local/bin && \
     chmod a+x /usr/local/bin/kubectl
 
-RUN git clone https://github.com/ksonnet/ksonnet.git /opt/ksonnet && \
-	cd /opt/ksonnet && \
-	git checkout 68d8f751791db6b0e0798c34f0d72bda24926d8d
+RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
-# TODO(jlewi): bootstrap is using an early dev version of ks (0.10) so we need
-# to build ks at the same commit because the generated app won't work with
-# earlier versions of ks.
-RUN cd /opt/ksonnet && \
-	mkdir -p /tmp/go/src/github.com/ksonnet && \
-	ln -sf /opt/ksonnet /tmp/go/src/github.com/ksonnet/ksonnet && \
-    cd /tmp/go/src/github.com/ksonnet/ksonnet && \
-	export GOPATH=/tmp/go && \
-	make install && \
-    cp /tmp/go/bin/ks /usr/local/bin && \
-    chmod a+rx /usr/local/bin/ks
+RUN mkdir -p $GOPATH/src/github.com/ksonnet
+WORKDIR $GOPATH/src/github.com/ksonnet
+RUN git clone https://github.com/ksonnet/ksonnet.git
+WORKDIR $GOPATH/src/github.com/ksonnet/ksonnet
+#RUN git checkout 68d8f751791db6b0e0798c34f0d72bda24926d8d
+RUN make install
+RUN cp $GOPATH/bin/ks /usr/local/bin && chmod a+rw /usr/local/bin/ks
 
 RUN mkdir -p /opt/kubeflow
 
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 
-RUN mkdir -p $GOPATH/src/github.com/kubeflow && \
-    cd $GOPATH/src/github.com/kubeflow && \
-    git clone $KUBEFLOW_REPO
+RUN mkdir -p $GOPATH/src/github.com/kubeflow/kubeflow/bootstrap
 
-RUN go build -i -o /opt/kubeflow/bootstraper ${GOPATH}/src/github.com/kubeflow/kubeflow/bootstrap/cmd/bootstrap/main.go
+COPY . $GOPATH/src/github.com/kubeflow/kubeflow/bootstrap
+
+WORKDIR $GOPATH/src/github.com/kubeflow/kubeflow/bootstrap
+
+RUN dep init && go build -i -o /opt/kubeflow/bootstraper ${GOPATH}/src/github.com/kubeflow/kubeflow/bootstrap/cmd/bootstrap/main.go
 
 COPY start.sh /opt/kubeflow/
 
