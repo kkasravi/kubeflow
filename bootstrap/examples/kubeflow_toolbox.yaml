@@ -11,21 +11,7 @@ spec:
   clusterIP: "None"
 
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: kubeflow-toolbox-pvc
-  labels:
-    app: kubeflow-toolbox
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi
-
----
-apiVersion: apps/v1
+apiVersion: apps/v1beta2
 kind: StatefulSet
 metadata:
   name: kubeflow-toolbox
@@ -42,7 +28,7 @@ spec:
     spec:
       containers:
       - name: kubeflow-toolbox
-        image: gcr.io/kubeflow-images-public/bootstrapper
+        image: gcr.io/constant-cubist-173123/bootstrapper:v20180427-v0.1.1-12-g248ba72-e3b0c4
         env:
         - name: NAMESPACE
           value: "kubeflow"
@@ -51,7 +37,12 @@ spec:
         volumeMounts:
         - name: kubeflow-toolbox-pvc
           mountPath: /opt/kubeflow/app
-      volumes:
-      - name: kubeflow-toolbox-pvc
-        persistentVolumeClaim:
-          claimName: kubeflow-toolbox-pvc
+  volumeClaimTemplates:
+  - metadata:
+      name: kubeflow-toolbox-pvc
+    spec:
+      accessModes: 
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
