@@ -103,6 +103,7 @@ class KubeFormSpawner(KubeSpawner):
         return legacy, safe, name
 
     def _expand_user_properties(self, template):
+        import pdb;pdb.set_trace()
         # Set servername based on whether named-server initialised
         if self.name:
             servername = '-{}'.format(self.name)
