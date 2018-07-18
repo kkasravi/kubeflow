@@ -17,6 +17,9 @@ app:
     - name: iap-ingress
       prototype: iap-ingress
   parameters:
+    - component: kubeflow-core
+      name: jupyterHubImageSecret
+      value: admin-gcr-io
     - component: cloud-endpoints
       name: secretName
       value: admin-gcp-sa
