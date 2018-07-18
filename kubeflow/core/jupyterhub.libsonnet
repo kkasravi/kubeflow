@@ -284,12 +284,12 @@
         name: "jupyter-hub",
         namespace: namespace,
       },
-      if imageSecret != "" then
-        imagePullSecrets: [
+      imagePullSecrets: [
+        if imageSecret != "" then
           {
             name: imageSecret,
-          }
-        ],
+          },
+     ],
     },
     jupyterNotebookServiceAccount: {
       apiVersion: "v1",
