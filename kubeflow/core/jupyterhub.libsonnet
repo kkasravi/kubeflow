@@ -5,7 +5,7 @@
     $.parts(params.namespace).jupyterHubLoadBalancer(params.jupyterHubServiceType),
     $.parts(params.namespace).jupyterHub(params.jupyterHubImage, params.jupyterNotebookPVCMount, params.cloud, params.jupyterNotebookRegistry, params.jupyterNotebookRepoName, params.jupyterHubAuthenticator, params.disks, params.gcpSecretName),
     $.parts(params.namespace).jupyterHubRole,
-    $.parts(params.namespace).jupyterHubServiceAccount,
+    $.parts(params.namespace).jupyterHubServiceAccount(params.jupyterHubImageSecret),
     $.parts(params.namespace).jupyterHubRoleBinding,
     $.parts(params.namespace).jupyterNotebookRole,
     $.parts(params.namespace).jupyterNotebookServiceAccount,
@@ -274,7 +274,7 @@
       ],
     },
 
-    jupyterHubServiceAccount: {
+    jupyterHubServiceAccount(imageSecret): {
       apiVersion: "v1",
       kind: "ServiceAccount",
       metadata: {
@@ -284,6 +284,12 @@
         name: "jupyter-hub",
         namespace: namespace,
       },
+      if imageSecret != "" then
+        imagePullSecrets: [
+          {
+            name: imageSecret,
+          }
+        ],
     },
     jupyterNotebookServiceAccount: {
       apiVersion: "v1",

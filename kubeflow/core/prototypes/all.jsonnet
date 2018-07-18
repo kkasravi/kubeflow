@@ -14,6 +14,7 @@
 // @optionalParam tfJobUiServiceType string ClusterIP The service type for the UI.
 // @optionalParam jupyterHubServiceType string ClusterIP The service type for Jupyterhub.
 // @optionalParam jupyterHubImage string gcr.io/kubeflow/jupyterhub-k8s:v20180531-3bb991b1 The image to use for JupyterHub.
+// @optionalParam jupyterHubImageSecret string null the imagePullSecret for jupterhubs serviceaccount
 // @optionalParam jupyterHubAuthenticator string null The authenticator to use
 // @optionalParam jupyterNotebookPVCMount string /home/jovyan Mount path for PVC. Set empty to disable PVC
 // @optionalParam jupyterNotebookRegistry string gcr.io The docker image registry for JupyterNotebook.
