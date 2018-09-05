@@ -30,7 +30,8 @@
         },
         type: params.ambassadorServiceType,
       },
-    },  // service
+    },  // ambassadorService
+    ambassadorService:: ambassadorService,
 
     local metricsService = {
       apiVersion: "v1",
@@ -61,6 +62,7 @@
         type: "ClusterIP",
       },
     },  // metricsService
+    metricsService:: metricsService,
 
     local adminService = {
       apiVersion: "v1",
@@ -86,6 +88,7 @@
         type: "ClusterIP",
       },
     },  // adminService
+    adminService:: adminService,
 
     local ambassadorRole = {
       apiVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -138,7 +141,8 @@
           ],
         },
       ],
-    },  // role
+    },  // ambassadorRole
+    ambassadorRole:: ambassadorRole,
 
     local ambassadorServiceAccount = {
       apiVersion: "v1",
@@ -147,7 +151,8 @@
         name: "ambassador",
         namespace: params.namespace,
       },
-    },  // serviceAccount
+    },  // ambassadorServiceAccount
+    ambassadorServiceAccount:: ambassadorServiceAccount,
 
     local ambassadorRoleBinding = {
       apiVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -168,7 +173,8 @@
           namespace: params.namespace,
         },
       ],
-    },  // roleBinding
+    },  // ambassadorRoleBinding
+    ambassadorRoleBinding:: ambassadorRoleBinding,
 
     local ambassadorDeployment = {
       local replicas = if params.cloud == "minikube" then 1 else 3,
@@ -247,7 +253,8 @@
           },
         },
       },
-    },  // deploy
+    },  // ambassadorDeployment
+    ambassadorDeployment:: ambassadorDeployment,
 
     // This service adds a rule to our reverse proxy for accessing the K8s dashboard.
     local k8sDashboard = {
@@ -296,16 +303,19 @@
         type: "ClusterIP",
       },
     },  // k8sDashboard
+    k8sDashboard:: k8sDashboard,
 
-    list:: util.list([
-      ambassadorService,
-      metricsService,
-      adminService,
-      ambassadorRole,
-      ambassadorServiceAccount,
-      ambassadorRoleBinding,
-      ambassadorDeployment,
-      k8sDashboard,
-    ],),
+    local all = [
+      self.ambassadorService,
+      self.metricsService,
+      self.adminService,
+      self.ambassadorRole,
+      self.ambassadorServiceAccount,
+      self.ambassadorRoleBinding,
+      self.ambassadorDeployment,
+      self.k8sDashboard,
+    ],
+
+    list(obj=all):: util.list(obj),
   },
 }
