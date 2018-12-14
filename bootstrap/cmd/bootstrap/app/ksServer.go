@@ -66,8 +66,14 @@ type KsService interface {
 	BindRole(context.Context, string, string, string) error
 	InsertDeployment(context.Context, CreateRequest) (*deploymentmanager.Deployment, error)
 	GetDeploymentStatus(context.Context, CreateRequest) (string, error)
+	ListPackages(context.Context, KsRegistry) (*ListPackages, error)
 	ApplyIamPolicy(context.Context, ApplyIamRequest) error
 	GetProjectLock(string) *sync.Mutex
+
+	// kfctl client
+	// AddModule adds a new ksModule
+	AddModule(context.Context, KsModule) error
+	CreateApplication(context.Context, Application) error
 }
 
 // appInfo keeps track of information about apps.
@@ -158,33 +164,33 @@ func NewServer(appsDir string, registries []RegistryConfig, gkeVersionOverride s
 // CreateRequest represents a request to create a ksonnet application.
 type CreateRequest struct {
 	// Name for the app.
-	Name string
+	Name string `json:"name,omitempty"`
 	// AppConfig is the config for the app.
-	AppConfig AppConfig
+	AppConfig AppConfig `json:"appconfig,omitempty"`
 
 	// Namespace for the app.
-	Namespace string
+	Namespace string `json:"namespace,omitempty"`
 
 	// Whether to try to autoconfigure the app.
-	AutoConfigure bool
+	AutoConfigure bool `json:"autoConfigure,omitempty"`
 
 	// target GKE cLuster info
-	Cluster       string
-	Project       string
-	ProjectNumber string
-	Zone          string
+	Cluster       string `json:"cluster,omitempty"`
+	Project       string `json:"project,omitempty"`
+	ProjectNumber string `json:"projectNumber,omitempty"`
+	Zone          string `json:"zone,omitempty"`
 
 	// Access token, need to access target cluster in order for AutoConfigure
-	Token string
-	Apply bool
-	Email string
+	Token string `json:"token,omitempty"`
+	Apply bool   `json:"apply,omitempty"`
+	Email string `json:"email,omitempty"`
 	// temporary
-	ClientId     string
-	ClientSecret string
-	IpName       string
+	ClientId     string `json:"clientId,omitempty"`
+	ClientSecret string `json:"clientSecret,omitempty"`
+	IpName       string `json:"ipName,omitempty"`
 
 	// For test: GCP service account client id
-	SAClientId string
+	SAClientId string `json:"saClientId,omitempty"`
 }
 
 // basicServerResponse is general response contains nil if handler raise no error, otherwise an error message.
@@ -561,6 +567,11 @@ func runCmd(rawcmd string) error {
 	}, bo)
 }
 
+// CreateApp creates a ksonnet application based on the request.
+func (s *ksServer) CreateApplication(ctx context.Context, request Application) error {
+	return nil
+}
+
 // appGenerate installs packages and creates components.
 func (s *ksServer) appGenerate(kfApp kApp.App, appConfig *AppConfig) error {
 	libs, err := kfApp.Libraries()
@@ -900,6 +911,14 @@ func (s *ksServer) SaveAppToRepo(project string, email string, repoDir string) e
 	}, bo)
 }
 
+func (s *ksServer) AddModule(ctx context.Context, req KsModule) error {
+	return nil
+}
+
+func (s *ksServer) ListPackages(ctx context.Context, req KsRegistry) (*ListPackages, error) {
+	return nil, nil
+}
+
 // Apply runs apply on a ksonnet application.
 func (s *ksServer) Apply(ctx context.Context, req ApplyRequest) error {
 	token := req.Token
@@ -1065,6 +1084,40 @@ func makeCreateAppEndpoint(svc KsService) endpoint.Endpoint {
 	}
 }
 
+// Create ksonnet app, and optionally apply it to target GKE cluster
+func makeCreateApplicationEndpoint(svc KsService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(Application)
+		err := svc.CreateApplication(ctx, req)
+
+		r := &basicServerResponse{}
+
+		if err != nil {
+			r.Err = err.Error()
+		} else {
+		}
+		return r, nil
+	}
+}
+
+// add module
+func makeAddModuleEndpoint(svc KsService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(KsModule)
+		err := svc.AddModule(ctx, req)
+		return nil, err
+	}
+}
+
+// List ksonnet pkgs
+func makeListPkgEndpoint(svc KsService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(KsRegistry)
+		packages, err := svc.ListPackages(ctx, req)
+		return packages, err
+	}
+}
+
 func timeSinceStart(ctx context.Context) time.Duration {
 	startTime, ok := ctx.Value(StartTime).(time.Time)
 	if !ok {
@@ -1190,8 +1243,35 @@ func makeIamEndpoint(svc KsService) endpoint.Endpoint {
 	}
 }
 
+func decodeAddModuleRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var request KsModule
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		deployReqCounter.WithLabelValues("INVALID_ARGUMENT").Inc()
+		return nil, err
+	}
+	return request, nil
+}
+
 func decodeCreateAppRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	var request CreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		deployReqCounter.WithLabelValues("INVALID_ARGUMENT").Inc()
+		return nil, err
+	}
+	return request, nil
+}
+
+func decodeCreateApplicationRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var request Application
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		deployReqCounter.WithLabelValues("INVALID_ARGUMENT").Inc()
+		return nil, err
+	}
+	return request, nil
+}
+
+func decodeListPkgRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var request KsRegistry
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		deployReqCounter.WithLabelValues("INVALID_ARGUMENT").Inc()
 		return nil, err
@@ -1226,6 +1306,12 @@ func (s *ksServer) StartHttp(port int) {
 	}
 	// ctx := context.Background()
 
+	addModuleHandler := httptransport.NewServer(
+		makeAddModuleEndpoint(s),
+		decodeAddModuleRequest,
+		encodeResponse,
+	)
+
 	applyAppHandler := httptransport.NewServer(
 		makeApplyAppEndpoint(s),
 		func(_ context.Context, r *http.Request) (interface{}, error) {
@@ -1242,6 +1328,18 @@ func (s *ksServer) StartHttp(port int) {
 	createAppHandler := httptransport.NewServer(
 		makeCreateAppEndpoint(s),
 		decodeCreateAppRequest,
+		encodeResponse,
+	)
+
+	createApplicationHandler := httptransport.NewServer(
+		makeCreateApplicationEndpoint(s),
+		decodeCreateApplicationRequest,
+		encodeResponse,
+	)
+
+	listPkgHandler := httptransport.NewServer(
+		makeListPkgEndpoint(s),
+		decodeListPkgRequest,
 		encodeResponse,
 	)
 
@@ -1291,6 +1389,10 @@ func (s *ksServer) StartHttp(port int) {
 	http.Handle("/kfctl/iam/apply", optionsHandler(applyIamHandler))
 	http.Handle("/kfctl/initProject", optionsHandler(initProjectHandler))
 	http.Handle("/kfctl/e2eDeploy", optionsHandler(deployHandler))
+	// kfctl client API
+	http.Handle("/kfctl/client/create", optionsHandler(createApplicationHandler))
+	http.Handle("/kfctl/client/module/add", optionsHandler(addModuleHandler))
+	http.Handle("/kfctl/client/pkg/list", optionsHandler(listPkgHandler))
 
 	// add an http handler for prometheus metrics
 	http.Handle("/metrics", promhttp.Handler())
