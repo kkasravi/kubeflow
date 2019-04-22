@@ -17,11 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	log "github.com/sirupsen/logrus"
 
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,12 @@ import (
 	// TODO: try this library to see if it generates correct json patch
 	// https://github.com/mattbaird/jsonpatch
 )
+
+// This is so we can securely talk to the api
+var config = Config{
+	CertFile: "/etc/webhook/certs/cert.pem",
+	KeyFile:  "/etc/webhook/certs/key.pem",
+}
 
 // toAdmissionResponse is a helper function to create an AdmissionResponse
 // with an embedded error
@@ -91,6 +98,10 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	}
 }
 
+func serveAlwaysAllowDelayFiveSeconds(w http.ResponseWriter, r *http.Request) {
+	serve(w, r, alwaysAllowDelayFiveSeconds)
+}
+
 func serveAlwaysDeny(w http.ResponseWriter, r *http.Request) {
 	serve(w, r, alwaysDeny)
 }
@@ -132,10 +143,16 @@ func serveCRD(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	var config Config
-	config.addFlags()
-	flag.Parse()
+	// Load our cert files
+	sCert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{sCert},
+	}
 
+	http.HandleFunc("/always-allow-delay-5s", serveAlwaysAllowDelayFiveSeconds)
 	http.HandleFunc("/always-deny", serveAlwaysDeny)
 	http.HandleFunc("/add-label", serveAddLabel)
 	http.HandleFunc("/pods", servePods)
@@ -148,7 +165,7 @@ func main() {
 	http.HandleFunc("/crd", serveCRD)
 	server := &http.Server{
 		Addr:      ":443",
-		TLSConfig: configTLS(config),
+		TLSConfig: tlsConfig,
 	}
 	server.ListenAndServeTLS("", "")
 }
