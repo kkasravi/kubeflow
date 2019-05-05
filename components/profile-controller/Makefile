@@ -1,8 +1,9 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= gcr.io/kubeflow-images-public/profile-controller
-TAG ?= $(eval TAG := $(shell date +v%Y%m%d)-$(shell git describe --tags --always --dirty)-$(shell git diff | shasum -a256 | cut -c -6))$(TAG)
-GOLANG_VERSION ?= 1.11.5
+GCLOUD_PROJECT ?= kubeflow-images-public
+IMG ?= gcr.io/$(GCLOUD_PROJECT)/profile-controller
+TAG ?= $(eval TAG := $(shell git describe --tags --long))$(TAG)
+GOLANG_VERSION ?= 1.12.4
 
 all: test manager
 
@@ -30,7 +31,7 @@ deploy: manifests
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+	controller-gen all
 
 # Run go fmt against code
 fmt:
@@ -46,13 +47,21 @@ generate:
 
 # Build the docker image
 docker-build: test
-	docker build . -t ${IMG}
+	docker build \
+		--build-arg GOLANG_VERSION=$(GOLANG_VERSION) \
+		--build-arg registries=reg_tmp \
+		--target=builder \
+		--tag $(IMG):$(TAG) .
 	@echo "updating kustomize image patch file for manager resource"
-	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
+	sed -i'' -e 's@image: .*@image: '"${IMG}:${TAG}"'@' ./config/default/manager_image_patch.yaml
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker push ${IMG}:${TAG}
+
+docker-push-latest:
+	gcloud container images add-tag --quiet $(IMG):$(TAG) $(IMG):latest --verbosity=info
+	echo created $(IMG):latest
 
 build-gcr: test
 	docker build -t $(IMG):$(TAG) .

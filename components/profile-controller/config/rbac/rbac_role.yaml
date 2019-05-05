@@ -17,9 +17,9 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - rbac
+  - ""
   resources:
-  - roles
+  - serviceaccount
   verbs:
   - get
   - list
