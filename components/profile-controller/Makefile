@@ -57,7 +57,7 @@ docker-build: test
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}:${TAG}
+	docker push $(IMG):$(TAG)
 
 docker-push-latest:
 	gcloud container images add-tag --quiet $(IMG):$(TAG) $(IMG):latest --verbosity=info
